@@ -2,11 +2,13 @@
 
 'use strict';
 
-var ast;
+var ast, body;
 
 function analyze(source, callback) {
   test(source, function() {
     ast = esprima.parse(source);
+    if (ast.body[0]) { body = ast.body[0]; }
+
     new looper.ScopeAnalyzer(ast).analyze();
     if (callback) {
       callback(ast);
@@ -639,8 +641,8 @@ analyze('{ foo }', function() {
   assertUnbound([]);
   assertDownstream(['foo']);
 
-  assertFlags(ast.body[0], ['unbound-get']);
-  assertUnbound(ast.body[0], ['foo']);
+  assertFlags(body, ['unbound-get']);
+  assertUnbound(body, ['foo']);
 });
 
 analyze('{ { foo } }', function() {
@@ -648,12 +650,12 @@ analyze('{ { foo } }', function() {
   assertUnbound([]);
   assertDownstream(['foo']);
 
-  assertFlags(ast.body[0], []);
-  assertUnbound(ast.body[0], []);
-  assertDownstream(ast.body[0], ['foo']);
+  assertFlags(body, []);
+  assertUnbound(body, []);
+  assertDownstream(body, ['foo']);
 
-  assertFlags(ast.body[0].body[0], ['unbound-get']);
-  assertUnbound(ast.body[0].body[0], ['foo']);
+  assertFlags(body.body[0], ['unbound-get']);
+  assertUnbound(body.body[0], ['foo']);
 });
 
 analyze('{}');
@@ -669,8 +671,8 @@ analyze('{ var x }', function() {
   assertFlags(['binding']);
   assertBound(['x']);
 
-  assertFlags(ast.body[0], []);
-  assertBound(ast.body[0], []);
+  assertFlags(body, []);
+  assertBound(body, []);
 });
 
 analyze('var x, y', function() {
@@ -682,8 +684,8 @@ analyze('{ var x, y }', function() {
   assertFlags(['binding']);
   assertBound(['x', 'y']);
 
-  assertFlags(ast.body[0], []);
-  assertBound(ast.body[0], []);
+  assertFlags(body, []);
+  assertBound(body, []);
 });
 
 analyze('var x = 42', function() {
@@ -696,9 +698,9 @@ analyze('{ var x = 42 }', function() {
   assertBound(['x']);
   assertDownstream(null, ['x']);
 
-  assertFlags(ast.body[0], ['unbound-set']);
-  assertUnbound(ast.body[0], null, ['x']);
-  assertBound(ast.body[0], []);
+  assertFlags(body, ['unbound-set']);
+  assertUnbound(body, null, ['x']);
+  assertBound(body, []);
 });
 
 analyze('var x = 42, y = 3, z = 1977', function() {
@@ -711,8 +713,8 @@ analyze('{ var x = 42, y = 3, z = 1977 }', function() {
   assertBound(['x', 'y', 'z']);
   assertDownstream(null, ['x', 'y', 'z']);
 
-  assertFlags(ast.body[0], ['unbound-set']);
-  assertUnbound(ast.body[0], null, ['x', 'y', 'z']);
+  assertFlags(body, ['unbound-set']);
+  assertUnbound(body, null, ['x', 'y', 'z']);
 });
 
 syntax('Let Statement');
@@ -723,8 +725,8 @@ analyze('let x', function() {
 });
 
 analyze('{ let x }', function() {
-  assertFlags(ast.body[0], ['binding']);
-  assertBound(ast.body[0], ['x']);
+  assertFlags(body, ['binding']);
+  assertBound(body, ['x']);
 });
 
 analyze('let x, y', function() {
@@ -733,8 +735,8 @@ analyze('let x, y', function() {
 });
 
 analyze('{ let x, y }', function() {
-  assertFlags(ast.body[0], ['binding']);
-  assertBound(ast.body[0], ['x', 'y']);
+  assertFlags(body, ['binding']);
+  assertBound(body, ['x', 'y']);
 });
 
 analyze('let x = 42', function() {
@@ -743,8 +745,8 @@ analyze('let x = 42', function() {
 });
 
 analyze('{ let x = 42 }', function() {
-  assertFlags(ast.body[0], ['binding']);
-  assertBound(ast.body[0], ['x']);
+  assertFlags(body, ['binding']);
+  assertBound(body, ['x']);
 });
 
 analyze('let x = 42, y = 3, z = 1977', function() {
@@ -753,8 +755,8 @@ analyze('let x = 42, y = 3, z = 1977', function() {
 });
 
 analyze('{ let x = 42, y = 3, z = 1977 }', function() {
-  assertFlags(ast.body[0], ['binding']);
-  assertBound(ast.body[0], ['x', 'y', 'z']);
+  assertFlags(body, ['binding']);
+  assertBound(body, ['x', 'y', 'z']);
 });
 
 syntax('Const Statement');
@@ -765,8 +767,8 @@ analyze('const x = 42', function() {
 });
 
 analyze('{ const x = 42 }', function() {
-  assertFlags(ast.body[0], ['binding']);
-  assertBound(ast.body[0], ['x']);
+  assertFlags(body, ['binding']);
+  assertBound(body, ['x']);
 });
 
 analyze('const x = 42, y = 3, z = 1977', function() {
@@ -775,8 +777,8 @@ analyze('const x = 42, y = 3, z = 1977', function() {
 });
 
 analyze('{ const x = 42, y = 3, z = 1977 }', function() {
-  assertFlags(ast.body[0], ['binding']);
-  assertBound(ast.body[0], ['x', 'y', 'z']);
+  assertFlags(body, ['binding']);
+  assertBound(body, ['x', 'y', 'z']);
 });
 
 syntax("Expression Statement");
@@ -795,11 +797,17 @@ syntax('If Statement');
 
 analyze('if (morning) goodMorning()', function() {
   assertFlags(['unbound-get']);
+  assertUnbound(['morning', 'goodMorning']);
+  assertDownstream([]);
+});
+
+analyze('if (morning) { goodMorning() }', function() {
+  assertFlags(['unbound-get']);
   assertUnbound(['morning']);
   assertDownstream(['goodMorning']);
 
-  assertFlags(ast.body[0].consequent, ['unbound-get']);
-  assertUnbound(ast.body[0].consequent, ['goodMorning']);
+  assertFlags(body.consequent, ['unbound-get']);
+  assertUnbound(body.consequent, ['goodMorning']);
 });
 
 analyze('if (morning) (function() {})', function() {
@@ -810,11 +818,17 @@ analyze('if (morning) (function() {})', function() {
 analyze('if (morning) var x = 0', function() {
   assertFlags(['binding']);
   assertUnbound(['morning']);
+  assertBound(['x']);
+});
+
+analyze('if (morning) { var x = 0 }', function() {
+  assertFlags(['binding']);
+  assertUnbound(['morning']);
   assertDownstream(null, ['x']);
   assertBound(['x']);
 
-  assertFlags(ast.body[0].consequent, ['unbound-set']);
-  assertUnbound(ast.body[0].consequent, null, ['x']);
+  assertFlags(body.consequent, ['unbound-set']);
+  assertUnbound(body.consequent, null, ['x']);
 });
 
 analyze('if (morning) function a() {}', function() {
@@ -826,6 +840,11 @@ analyze('if (morning) function a() {}', function() {
 
 analyze('if (morning) goodMorning(); else goodDay()', function() {
   assertFlags(['unbound-get']);
+  assertUnbound(['morning', 'goodMorning', 'goodDay']);
+});
+
+analyze('if (morning) { goodMorning(); } else { goodDay() }', function() {
+  assertFlags(['unbound-get']);
   assertUnbound(['morning']);
   assertDownstream(['goodMorning', 'goodDay']);
 });
@@ -833,10 +852,15 @@ analyze('if (morning) goodMorning(); else goodDay()', function() {
 syntax('Iteration Statements');
 
 analyze('do keep(); while (true)', function() {
+  assertFlags(['unbound-get']);
+  assertUnbound(['keep']);
+});
+
+analyze('do { keep(); } while (true)', function() {
   assertDownstream(['keep']);
 
-  assertFlags(ast.body[0].body, ['unbound-get']);
-  assertUnbound(ast.body[0].body, ['keep']);
+  assertFlags(body.body, ['unbound-get']);
+  assertUnbound(body.body, ['keep']);
 });
 
 analyze('do { x++; y-- } while (x < 10)', function() {
@@ -844,21 +868,26 @@ analyze('do { x++; y-- } while (x < 10)', function() {
   assertUnbound(['x']);
   assertDownstream(['x', 'y']);
 
-  assertFlags(ast.body[0].body, ['unbound-get']);
-  assertUnbound(ast.body[0].body, ['x', 'y']);
+  assertFlags(body.body, ['unbound-get']);
+  assertUnbound(body.body, ['x', 'y']);
 });
 
 analyze('{ do { } while(false) false }', function() {
-  assertFlags(ast.body[0], []);
-  assertUnbound(ast.body[0], [], []);
-  assertBound(ast.body[0], []);
+  assertFlags(body, []);
+  assertUnbound(body, [], []);
+  assertBound(body, []);
 });
 
 analyze('while (true) doSomething()', function() {
+  assertFlags(['unbound-get']);
+  assertUnbound(['doSomething']);
+});
+
+analyze('while (true) { doSomething() }', function() {
   assertDownstream(['doSomething']);
 
-  assertFlags(ast.body[0].body, ['unbound-get']);
-  assertUnbound(ast.body[0].body, ['doSomething']);
+  assertFlags(body.body, ['unbound-get']);
+  assertUnbound(body.body, ['doSomething']);
 });
 
 analyze('while (x < 10) { x++; y--; }', function() {
@@ -866,21 +895,24 @@ analyze('while (x < 10) { x++; y--; }', function() {
   assertUnbound(['x']);
   assertDownstream(['x', 'y']);
 
-  assertFlags(ast.body[0].body, ['unbound-get']);
-  assertUnbound(ast.body[0].body, ['x', 'y']);
+  assertFlags(body.body, ['unbound-get']);
+  assertUnbound(body.body, ['x', 'y']);
 });
 
-analyze('for(;;);', function() {
-  assertFlags(ast.body[0].body, []);
-  assertUnbound(ast.body[0].body, []);
+analyze('for(;;);');
+
+analyze('for(;;) { }', function() {
+  assertFlags(body, []);
+  assertUnbound(body.body, []);
 });
 
 analyze('for(x=0;;);', function() {
-  assertFlags(['unbound-set']);
-  assertUnbound(null, ['x']);
+  assertDownstream(null, ['x']);
 
-  assertFlags(ast.body[0].body, []);
-  assertUnbound(ast.body[0].body, [], []);
+  var loop = body;
+
+  assertFlags(loop, ['unbound-set']);
+  assertUnbound(loop, null, ['x']);
 });
 
 analyze('for(let x = 0;;);', function() {
