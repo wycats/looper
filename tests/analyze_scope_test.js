@@ -909,14 +909,56 @@ analyze('for(;;) { }', function() {
 analyze('for(x=0;;);', function() {
   assertDownstream(null, ['x']);
 
-  var loop = body;
-
-  assertFlags(loop, ['unbound-set']);
-  assertUnbound(loop, null, ['x']);
+  assertFlags(body, ['unbound-set']);
+  assertUnbound(body, null, ['x']);
 });
 
 analyze('for(let x = 0;;);', function() {
-  // TODO: Scope of let here
+  assertBound(body, ['x']);
+});
+
+analyze('for(var x=0, y=1;;);', function() {
+  assertDownstream(null, ['x', 'y']);
+  assertBound(['x', 'y']);
+
+  assertFlags(body, ['unbound-set']);
+  assertUnbound(body, null, ['x', 'y']);
+});
+
+analyze('for(x=0; x<42;);', function() {
+  assertDownstream(['x'], ['x']);
+
+  assertFlags(body, ['unbound-get', 'unbound-set']);
+  assertUnbound(body, ['x'], ['x']);
+});
+
+analyze('for(x=0; x<42; x++);', function() {
+  assertDownstream(['x'], ['x']);
+
+  assertFlags(body, ['unbound-get', 'unbound-set']);
+  assertUnbound(body, ['x'], ['x']);
+});
+
+analyze('for(x=0; x<42; x++) process(x);', function() {
+  assertDownstream(['x', 'process'], ['x']);
+
+  assertFlags(body, ['unbound-get', 'unbound-set']);
+  assertUnbound(body, ['x', 'process'], ['x']);
+});
+
+analyze('for(x=0; x<42; x++) { process(x); }', function() {
+  assertDownstream(['x', 'process'], ['x']);
+
+  assertFlags(body, ['unbound-get', 'unbound-set']);
+  assertDownstream(body, ['process', 'x']);
+  assertUnbound(body, ['x'], ['x']);
+
+  assertFlags(body.body, ['unbound-get']);
+  assertUnbound(body.body, ['process', 'x']);
+});
+
+analyze('for(x in list) process(x);', function() {
+
 });
 
 })();
